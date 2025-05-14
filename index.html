@@ -1,0 +1,447 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cronograma oficial do Curso de Bombeiro Civil, para treinamento profissional.">
+  <title>Cronograma do Curso de Bombeiro Civil</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    html { scroll-behavior: smooth; }
+    .clickable:hover { transform: scale(1.02); transition: transform 0.2s ease-in-out; }
+    [id^="modulo-"], [id^="tipo-"] { scroll-margin-top: 80px; }
+    @media print {
+      body { font-family: 'Georgia', serif; font-size: 10pt; color: #000; margin: 20mm 15mm; }
+      header, footer, #downloadPdf, #toggleView, #hamburgerButton, #navMenu, #errorMessage, #timelineContent, #tableContent { display: none; }
+      .shadow-lg { box-shadow: none; }
+      .bg-white, .bg-blue-50 { background: #fff; }
+      .border-l-4, .border-t-4 { border: none; }
+      #intro, #overview, #legend, #timeline { display: block; page-break-before: always; margin-bottom: 10mm; }
+      section { page-break-inside: avoid; }
+      h2 { font-size: 12pt; font-weight: bold; margin-bottom: 5mm; }
+      h3 { font-size: 11pt; font-weight: bold; }
+      p, li, td, th { font-size: 10pt; line-height: 1.4; }
+      .grid, .flex { display: block; }
+      .grid > *, .flex > * { margin-bottom: 3mm; }
+      ul, li, div[role="listitem"], table, tr, td, th { page-break-inside: avoid; }
+      table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+      th, td { border: 1px solid #000; padding: 2mm; }
+      .overflow-x-auto { overflow: visible; }
+      .rounded-lg, .rounded-full { border-radius: 0; }
+      [class*="bg-"], [class*="border-"] { background: none; border: none; }
+      .w-12, .h-12, .w-4, .h-4 { width: auto; height: auto; }
+      #pdfTable { display: block; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans">
+  <header class="bg-blue-900 text-white py-4 sm:py-6">
+    <div class="container mx-auto px-4 sm:px-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+      <div class="flex items-center justify-between w-full sm:w-auto">
+        <div class="text-center sm:text-left">
+          <h1 class="text-2xl sm:text-3xl font-bold">Curso de Bombeiro Civil</h1>
+          <p class="text-base sm:text-sm">Formação Profissional - 32 Encontros</p>
+        </div>
+        <button id="hamburgerButton" class="sm:hidden text-white focus:outline-none" aria-label="Abrir menu de navegação" aria-expanded="false" aria-controls="navMenu">
+          <i class="fas fa-bars text-2xl"></i>
+        </button>
+      </div>
+      <nav id="navMenu" class="hidden sm:flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-4 w-full sm:w-auto bg-white sm:bg-transparent text-blue-900 sm:text-white rounded-lg sm:rounded-none p-4 sm:p-0">
+        <a href="#timeline" class="hover:underline text-base sm:text-sm">Cronograma</a>
+        <a href="#overview" class="hover:underline text-base sm:text-sm">Visão Geral</a>
+        <a href="#contact" class="hover:underline text-base sm:text-sm">Contato</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 sm:px-6 py-6 sm:py-8" id="pdfContent">
+    <section id="intro" class="bg-blue-50 border-t-4 border-blue-600 rounded-lg p-6 sm:p-8 mb-8 sm:mb-10">
+      <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 font-serif">Bem-vindo ao Cronograma do Curso</h2>
+      <p class="text-lg sm:text-base text-gray-700 mt-4">
+        Este cronograma detalha os 32 encontros do Curso de Bombeiro Civil, divididos em quatro módulos: Fundamentos Profissionais, Técnicas de Salvamento, Prevenção e Combate a Incêndios, e Atendimento Pré-Hospitalar e Consolidação. O curso combina teoria e prática para formar profissionais capacitados.
+      </p>
+    </section>
+
+    <section id="overview" class="bg-white shadow-lg rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+      <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">Visão Geral dos Módulos</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
+        <a href="#modulo-01-header" class="p-4 border-l-4 border-blue-600 hover:bg-gray-50 cursor-pointer clickable" aria-label="Ver Módulo 01: Fundamentos Profissionais no cronograma">
+          <h3 class="text-lg font-semibold">Módulo 01: Fundamentos Profissionais</h3>
+          <p class="text-gray-600 text-base sm:text-sm">Encontros 1-6: Introdução, relações humanas, legislação e provas.</p>
+        </a>
+        <a href="#modulo-02-header" class="p-4 border-l-4 border-red-600 hover:bg-gray-50 cursor-pointer clickable" aria-label="Ver Módulo 02: Técnicas de Salvamento no cronograma">
+          <h3 class="text-lg font-semibold">Módulo 02: Técnicas de Salvamento</h3>
+          <p class="text-gray-600 text-base sm:text-sm">Encontros 7-12: Código Q, salvamento teórico e prático.</p>
+        </a>
+        <a href="#modulo-03-header" class="p-4 border-l-4 border-purple-600 hover:bg-gray-50 cursor-pointer clickable" aria-label="Ver Módulo 03: Prevenção e Combate a Incêndios no cronograma">
+          <h3 class="text-lg font-semibold">Módulo 03: Prevenção e Combate a Incêndios</h3>
+          <p class="text-gray-600 text-base sm:text-sm">Encontros 13-19: PCI teórico e prático.</p>
+        </a>
+        <a href="#modulo-04-header" class="p-4 border-l-4 border-orange-600 hover:bg-gray-50 cursor-pointer clickable" aria-label="Ver Módulo 04: Atendimento Pré-Hospitalar e Consolidação no cronograma">
+          <h3 class="text-lg font-semibold">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</h3>
+          <p class="text-gray-600 text-base sm:text-sm">Encontros 20-32: APH teórico, prático e recuperação.</p>
+        </a>
+      </div>
+    </section>
+
+    <section id="legend" class="bg-white shadow-lg rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+      <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">Legenda de Atividades</h2>
+      <ul class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-base sm:text-sm">
+        <li><a href="#tipo-introducao" class="flex items-center hover:underline cursor-pointer clickable" aria-label="Ver atividades de Introdução no cronograma"><span class="inline-block w-4 h-4 bg-blue-100 mr-2"></span>Introdução</a></li>
+        <li><a href="#tipo-rh-la" class="flex items-center hover:underline cursor-pointer clickable" aria-label="Ver atividades de Relações Humanas e Legislação Aplicada no cronograma"><span class="inline-block w-4 h-4 bg-green-100 mr-2"></span>R.H./L.A.</a></li>
+        <li><a href="#tipo-salvamento" class="flex items-center hover:underline cursor-pointer clickable" aria-label="Ver atividades de Salvamento no cronograma"><span class="inline-block w-4 h-4 bg-red-100 mr-2"></span>Salvamento</a></li>
+        <li><a href="#tipo-pci" class="flex items-center hover:underline cursor-pointer clickable" aria-label="Ver atividades de Prevenção e Combate a Incêndios no cronograma"><span class="inline-block w-4 h-4 bg-purple-100 mr-2"></span>PCI</a></li>
+        <li><a href="#tipo-aph" class="flex items-center hover:underline cursor-pointer clickable" aria-label="Ver atividades de Atendimento Pré-Hospitalar no cronograma"><span class="inline-block w-4 h-4 bg-orange-100 mr-2"></span>APH</a></li>
+        <li><a href="#tipo-recuperacao" class="flex items-center hover:underline cursor-pointer clickable" aria-label="Ver atividades de Recuperação no cronograma"><span class="inline-block w-4 h-4 bg-gray-100 mr-2"></span>Recuperação</a></li>
+      </ul>
+    </section>
+
+    <section id="timeline" class="bg-white shadow-lg rounded-lg p-4 sm:p-6">
+      <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0">
+        <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Cronograma Detalhado</h2>
+        <div class="flex gap-2">
+          <button id="toggleView" class="bg-gray-600 text-white px-2 py-1 sm:px-4 sm:py-2 rounded hover:bg-gray-700 text-base sm:text-sm max-w-xs">Alternar Visualização</button>
+          <button id="downloadPdf" class="bg-blue-600 text-white px-2 py-1 sm:px-4 sm:py-2 rounded hover:bg-blue-700 text-base sm:text-sm max-w-xs">Baixar PDF</button>
+        </div>
+      </div>
+      <div id="timelineContent" role="region" aria-label="Cronograma do curso"></div>
+      <div id="tableContent" class="hidden" role="region" aria-label="Tabela do cronograma">
+        <div class="overflow-x-auto">
+          <table class="w-full text-base sm:text-sm text-left text-gray-600">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="p-2 sm:p-3">Encontro</th>
+                <th class="p-2 sm:p-3">Módulo</th>
+                <th class="p-2 sm:p-3">Título</th>
+                <th class="p-2 sm:p-3">Tipo</th>
+                <th class="p-2 sm:p-3">Dia</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="pdfTable" class="hidden">
+        <table class="w-full text-base sm:text-sm text-left text-gray-600">
+          <thead>
+            <tr>
+              <th class="p-2 sm:p-3">Encontro</th>
+              <th class="p-2 sm:p-3">Módulo</th>
+              <th class="p-2 sm:p-3">Título</th>
+              <th class="p-2 sm:p-3">Tipo</th>
+              <th class="p-2 sm:p-3">Dia</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="p-2 sm:p-3">1</td><td class="p-2 sm:p-3">Módulo 01: Fundamentos Profissionais</td><td class="p-2 sm:p-3">Introdução ao Curso</td><td class="p-2 sm:p-3">Introdução</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">2</td><td class="p-2 sm:p-3">Módulo 01: Fundamentos Profissionais</td><td class="p-2 sm:p-3">Conhecendo a Jornada do Bombeiro</td><td class="p-2 sm:p-3">Introdução</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">3</td><td class="p-2 sm:p-3">Módulo 01: Fundamentos Profissionais</td><td class="p-2 sm:p-3">Relações Humanas (Teoria)</td><td class="p-2 sm:p-3">R.H.</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">4</td><td class="p-2 sm:p-3">Módulo 01: Fundamentos Profissionais</td><td class="p-2 sm:p-3">Legislação Aplicada (Teoria)</td><td class="p-2 sm:p-3">L.A.</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">5</td><td class="p-2 sm:p-3">Módulo 01: Fundamentos Profissionais</td><td class="p-2 sm:p-3">Revisão de R.H. e L.A.</td><td class="p-2 sm:p-3">R.H./L.A.</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">6</td><td class="p-2 sm:p-3">Módulo 01: Fundamentos Profissionais</td><td class="p-2 sm:p-3">Prova de R.H. e L.A.</td><td class="p-2 sm:p-3">R.H./L.A.</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">7</td><td class="p-2 sm:p-3">Módulo 02: Técnicas de Salvamento</td><td class="p-2 sm:p-3">Código Q e Alfabeto Fonético</td><td class="p-2 sm:p-3">Salvamento</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">8</td><td class="p-2 sm:p-3">Módulo 02: Técnicas de Salvamento</td><td class="p-2 sm:p-3">Salvamento (Teoria)</td><td class="p-2 sm:p-3">Salvamento</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">9</td><td class="p-2 sm:p-3">Módulo 02: Técnicas de Salvamento</td><td class="p-2 sm:p-3">Prática Externa Salvamento</td><td class="p-2 sm:p-3">Salvamento</td><td class="p-2 sm:p-3">Domingo</td></tr>
+            <tr><td class="p-2 sm:p-3">10</td><td class="p-2 sm:p-3">Módulo 02: Técnicas de Salvamento</td><td class="p-2 sm:p-3">Revisão de Salvamento (Teórica)</td><td class="p-2 sm:p-3">Salvamento</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">11</td><td class="p-2 sm:p-3">Módulo 02: Técnicas de Salvamento</td><td class="p-2 sm:p-3">Prova de Salvamento (Teórica)</td><td class="p-2 sm:p-3">Salvamento</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">12</td><td class="p-2 sm:p-3">Módulo 02: Técnicas de Salvamento</td><td class="p-2 sm:p-3">Prática Externa Salvamento</td><td class="p-2 sm:p-3">Salvamento</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">13</td><td class="p-2 sm:p-3">Módulo 03: Prevenção e Combate a Incêndios</td><td class="p-2 sm:p-3">PCI (Teoria)</td><td class="p-2 sm:p-3">PCI</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">14</td><td class="p-2 sm:p-3">Módulo 03: Prevenção e Combate a Incêndios</td><td class="p-2 sm:p-3">PCI (Teoria)</td><td class="p-2 sm:p-3">PCI</td><td class="p-2 sm:p-3">Domingo</td></tr>
+            <tr><td class="p-2 sm:p-3">15</td><td class="p-2 sm:p-3">Módulo 03: Prevenção e Combate a Incêndios</td><td class="p-2 sm:p-3">PCI (Teoria)</td><td class="p-2 sm:p-3">PCI</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">16</td><td class="p-2 sm:p-3">Módulo 03: Prevenção e Combate a Incêndios</td><td class="p-2 sm:p-3">PCI (Teoria)</td><td class="p-2 sm:p-3">PCI</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">17</td><td class="p-2 sm:p-3">Módulo 03: Prevenção e Combate a Incêndios</td><td class="p-2 sm:p-3">PCI (Revisão Teórica)</td><td class="p-2 sm:p-3">PCI</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">18</td><td class="p-2 sm:p-3">Módulo 03: Prevenção e Combate a Incêndios</td><td class="p-2 sm:p-3">PCI (Prova Teórica)</td><td class="p-2 sm:p-3">PCI</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">19</td><td class="p-2 sm:p-3">Módulo 03: Prevenção e Combate a Incêndios</td><td class="p-2 sm:p-3">PCI (Prática)</td><td class="p-2 sm:p-3">PCI</td><td class="p-2 sm:p-3">Domingo</td></tr>
+            <tr><td class="p-2 sm:p-3">20</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Teoria)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">21</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Teoria)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">22</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Teoria)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">23</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Teoria)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">24</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Revisão Teórica)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Domingo</td></tr>
+            <tr><td class="p-2 sm:p-3">25</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Prova Teórica)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">26</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Prática)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">27</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Prática)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">28</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Prática)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">29</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">APH (Prática)</td><td class="p-2 sm:p-3">APH</td><td class="p-2 sm:p-3">Domingo</td></tr>
+            <tr><td class="p-2 sm:p-3">30</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">Recuperação (Revisão)</td><td class="p-2 sm:p-3">Recuperação</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">31</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">Recuperação (R.H. / L.A. / SAL)</td><td class="p-2 sm:p-3">Recuperação</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+            <tr><td class="p-2 sm:p-3">32</td><td class="p-2 sm:p-3">Módulo 04: Atendimento Pré-Hospitalar e Consolidação</td><td class="p-2 sm:p-3">Recuperação (PCI / APH)</td><td class="p-2 sm:p-3">Recuperação</td><td class="p-2 sm:p-3">Seg/Ter/Qua/Qui</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="errorMessage" class="hidden text-red-600 mt-4">
+        Erro ao carregar o cronograma. Por favor, recarregue a página ou entre em contato com o suporte.
+      </div>
+    </section>
+  </main>
+
+  <footer id="contact" class="bg-blue-900 text-white py-4 sm:py-6">
+    <div class="container mx-auto px-4 sm:px-6 text-center flex flex-col items-center gap-2">
+      <p class="text-lg font-semibold">Braço forte, Perna forte, Cabeça boa.</p>
+      <p class="text-base sm:text-sm">Cronograma elaborado e revisado por: Medeiros</p>
+      <p class="text-base sm:text-sm">
+        Contato: 
+        <a href="https://www.instagram.com/coordenadormedeiros/" target="_blank" rel="noopener noreferrer" class="underline hover:text-blue-300"><i class="fab fa-instagram mr-1"></i>@coordenadormedeiros</a> | 
+        <a href="https://www.instagram.com/bombeirocivilbrasilia/" target="_blank" rel="noopener noreferrer" class="underline hover:text-blue-300"><i class="fab fa-instagram mr-1"></i>@bombeirocivilbrasilia</a> | 
+        <a href="https://www.linkedin.com/in/chefemedeiros/" target="_blank" rel="noopener noreferrer" class="underline hover:text-blue-300"><i class="fab fa-linkedin mr-1"></i>@chefemedeiros</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    const cronograma = [
+      { encontro: 1, modulo: "Módulo 01: Fundamentos Profissionais", titulo: "Introdução ao Curso", tipo: "Introdução", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 2, modulo: "Módulo 01: Fundamentos Profissionais", titulo: "Conhecendo a Jornada do Bombeiro", tipo: "Introdução", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 3, modulo: "Módulo 01: Fundamentos Profissionais", titulo: "Relações Humanas (Teoria)", tipo: "R.H.", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 4, modulo: "Módulo 01: Fundamentos Profissionais", titulo: "Legislação Aplicada (Teoria)", tipo: "L.A.", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 5, modulo: "Módulo 01: Fundamentos Profissionais", titulo: "Revisão de R.H. e L.A.", tipo: "R.H./L.A.", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 6, modulo: "Módulo 01: Fundamentos Profissionais", titulo: "Prova de R.H. e L.A.", tipo: "R.H./L.A.", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 7, modulo: "Módulo 02: Técnicas de Salvamento", titulo: "Código Q e Alfabeto Fonético", tipo: "Salvamento", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 8, modulo: "Módulo 02: Técnicas de Salvamento", titulo: "Salvamento (Teoria)", tipo: "Salvamento", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 9, modulo: "Módulo 02: Técnicas de Salvamento", titulo: "Prática Externa Salvamento", tipo: "Salvamento", dia: "Domingo" },
+      { encontro: 10, modulo: "Módulo 02: Técnicas de Salvamento", titulo: "Revisão de Salvamento (Teórica)", tipo: "Salvamento", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 11, modulo: "Módulo 02: Técnicas de Salvamento", titulo: "Prova de Salvamento (Teórica)", tipo: "Salvamento", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 12, modulo: "Módulo 02: Técnicas de Salvamento", titulo: "Prática Externa Salvamento", tipo: "Salvamento", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 13, modulo: "Módulo 03: Prevenção e Combate a Incêndios", titulo: "PCI (Teoria)", tipo: "PCI", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 14, modulo: "Módulo 03: Prevenção e Combate a Incêndios", titulo: "PCI (Teoria)", tipo: "PCI", dia: "Domingo" },
+      { encontro: 15, modulo: "Módulo 03: Prevenção e Combate a Incêndios", titulo: "PCI (Teoria)", tipo: "PCI", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 16, modulo: "Módulo 03: Prevenção e Combate a Incêndios", titulo: "PCI (Teoria)", tipo: "PCI", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 17, modulo: "Módulo 03: Prevenção e Combate a Incêndios", titulo: "PCI (Revisão Teórica)", tipo: "PCI", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 18, modulo: "Módulo 03: Prevenção e Combate a Incêndios", titulo: "PCI (Prova Teórica)", tipo: "PCI", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 19, modulo: "Módulo 03: Prevenção e Combate a Incêndios", titulo: "PCI (Prática)", tipo: "PCI", dia: "Domingo" },
+      { encontro: 20, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Teoria)", tipo: "APH", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 21, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Teoria)", tipo: "APH", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 22, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Teoria)", tipo: "APH", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 23, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Teoria)", tipo: "APH", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 24, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Revisão Teórica)", tipo: "APH", dia: "Domingo" },
+      { encontro: 25, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Prova Teórica)", tipo: "APH", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 26, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Prática)", tipo: "APH", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 27, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Prática)", tipo: "APH", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 28, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Prática)", tipo: "APH", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 29, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "APH (Prática)", tipo: "APH", dia: "Domingo" },
+      { encontro: 30, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "Recuperação (Revisão)", tipo: "Recuperação", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 31, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "Recuperação (R.H. / L.A. / SAL)", tipo: "Recuperação", dia: "Seg/Ter/Qua/Qui" },
+      { encontro: 32, modulo: "Módulo 04: Atendimento Pré-Hospitalar e Consolidação", titulo: "Recuperação (PCI / APH)", tipo: "Recuperação", dia: "Seg/Ter/Qua/Qui" }
+    ];
+
+    const coresTipo = {
+      Introdução: "bg-blue-100 text-blue-800",
+      "R.H.": "bg-green-100 text-green-800",
+      "L.A.": "bg-green-100 text-green-800",
+      "R.H./L.A.": "bg-green-100 text-green-800",
+      Salvamento: "bg-red-100 text-red-800",
+      PCI: "bg-purple-100 text-purple-800",
+      APH: "bg-orange-100 text-orange-800",
+      Recuperação: "bg-gray-100 text-gray-800"
+    };
+
+    const moduloCores = {
+      "Módulo 01: Fundamentos Profissionais": "border-l-4 border-blue-600",
+      "Módulo 02: Técnicas de Salvamento": "border-l-4 border-red-600",
+      "Módulo 03: Prevenção e Combate a Incêndios": "border-l-4 border-purple-600",
+      "Módulo 04: Atendimento Pré-Hospitalar e Consolidação": "border-l-4 border-orange-600"
+    };
+
+    function renderTimeline() {
+      try {
+        const timeline = document.getElementById('timelineContent');
+        if (!timeline) {
+          console.error('Elemento #timelineContent não encontrado.');
+          document.getElementById('errorMessage').classList.remove('hidden');
+          return;
+        }
+
+        let semana = 0;
+        let encontrosNaSemana = 0;
+        let moduloAtual = "";
+        const tiposVistos = new Set();
+
+        cronograma.forEach((item, index) => {
+          if (encontrosNaSemana === 0) {
+            semana++;
+            const cabecalhoSemana = document.createElement('div');
+            cabecalhoSemana.className = 'text-lg font-bold text-gray-600 mt-6';
+            cabecalhoSemana.textContent = `Semana ${semana}`;
+            timeline.appendChild(cabecalhoSemana);
+          }
+
+          if (item.modulo !== moduloAtual) {
+            moduloAtual = item.modulo;
+            const cabecalhoModulo = document.createElement('div');
+            cabecalhoModulo.className = 'text-xl font-semibold text-gray-700 mt-4 mb-2';
+            cabecalhoModulo.textContent = moduloAtual;
+            if (moduloAtual === "Módulo 01: Fundamentos Profissionais") {
+              cabecalhoModulo.id = 'modulo-01-header';
+            } else if (moduloAtual === "Módulo 02: Técnicas de Salvamento") {
+              cabecalhoModulo.id = 'modulo-02-header';
+            } else if (moduloAtual === "Módulo 03: Prevenção e Combate a Incêndios") {
+              cabecalhoModulo.id = 'modulo-03-header';
+            } else if (moduloAtual === "Módulo 04: Atendimento Pré-Hospitalar e Consolidação") {
+              cabecalhoModulo.id = 'modulo-04-header';
+            }
+            timeline.appendChild(cabecalhoModulo);
+          }
+
+          const entrada = document.createElement('div');
+          entrada.className = `flex items-start p-4 rounded-lg ${coresTipo[item.tipo]} ${moduloCores[item.modulo]} pl-6 mb-2`;
+          entrada.setAttribute('role', 'listitem');
+
+          if (!tiposVistos.has(item.tipo)) {
+            const tipoId = item.tipo.toLowerCase().replace(/[\.\/]/g, '-');
+            entrada.id = `tipo-${tipoId}`;
+            tiposVistos.add(item.tipo);
+          }
+
+          entrada.innerHTML = `
+            <div class="flex-shrink-0 w-12 h-12 bg-gray-800 text-white rounded-full flex items-center justify-center font-bold" aria-label="Encontro ${item.encontro}">
+              ${item.encontro}
+            </div>
+            <div class="ml-4">
+              <h3 class="text-lg font-semibold">${item.titulo}</h3>
+              <p class="text-base sm:text-sm">Dia: ${item.dia} | Tipo: ${item.tipo}</p>
+            </div>
+          `;
+          timeline.appendChild(entrada);
+
+          encontrosNaSemana++;
+          if (item.dia === "Domingo" || encontrosNaSemana >= 5 || index === cronograma.length - 1) {
+            encontrosNaSemana = 0;
+          }
+        });
+        console.log('Cronograma renderizado com sucesso.');
+      } catch (error) {
+        console.error('Erro ao renderizar o cronograma:', error);
+        document.getElementById('errorMessage').classList.remove('hidden');
+      }
+    }
+
+    function renderTable() {
+      try {
+        const tableBody = document.getElementById('tableBody');
+        if (!tableBody) {
+          console.error('Elemento #tableBody não encontrado.');
+          document.getElementById('errorMessage').classList.remove('hidden');
+          return;
+        }
+
+        cronograma.forEach(item => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td class="p-2 sm:p-3">${item.encontro}</td>
+            <td class="p-2 sm:p-3">${item.modulo}</td>
+            <td class="p-2 sm:p-3">${item.titulo}</td>
+            <td class="p-2 sm:p-3 ${coresTipo[item.tipo]}">${item.tipo}</td>
+            <td class="p-2 sm:p-3">${item.dia}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+        console.log('Tabela renderizada com sucesso.');
+      } catch (error) {
+        console.error('Erro ao renderizar a tabela:', error);
+        document.getElementById('errorMessage').classList.remove('hidden');
+      }
+    }
+
+    window.onload = function() {
+      try {
+        renderTimeline();
+        renderTable();
+
+        const hamburgerButton = document.getElementById('hamburgerButton');
+        const navMenu = document.getElementById('navMenu');
+        hamburgerButton.addEventListener('click', () => {
+          const isExpanded = !navMenu.classList.contains('hidden');
+          navMenu.classList.toggle('hidden');
+          hamburgerButton.setAttribute('aria-expanded', !isExpanded);
+          hamburgerButton.innerHTML = isExpanded ? '<i class="fas fa-bars text-2xl"></i>' : '<i class="fas fa-times text-2xl"></i>';
+        });
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+          anchor.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href');
+            const target = document.querySelector(targetId);
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+              console.warn(`Elemento com ID ${targetId} não encontrado.`);
+            }
+          });
+        });
+
+        document.getElementById('toggleView').addEventListener('click', () => {
+          const timeline = document.getElementById('timelineContent');
+          const table = document.getElementById('tableContent');
+          if (timeline.classList.contains('hidden')) {
+            timeline.classList.remove('hidden');
+            table.classList.add('hidden');
+            document.getElementById('toggleView').textContent = 'Ver como Tabela';
+          } else {
+            timeline.classList.add('hidden');
+            table.classList.remove('hidden');
+            document.getElementById('toggleView').textContent = 'Ver como Linha do Tempo';
+          }
+        });
+
+        document.getElementById('downloadPdf').addEventListener('click', () => {
+          const elemento = document.getElementById('pdfContent');
+          const pdfTable = document.getElementById('pdfTable');
+          pdfTable.classList.remove('hidden'); // Mostrar tabela para PDF
+          html2pdf().from(elemento).set({
+            filename: 'Cronograma_Bombeiro_Civil_2025.pdf',
+            margin: [20, 15, 20, 15],
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            html2canvas: { scale: 3 },
+            pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', 'td', 'li', 'div'] }
+          }).save().then(() => {
+            pdfTable.classList.add('hidden'); // Esconder tabela após PDF
+          });
+        });
+      } catch (error) {
+        console.error('Erro ao inicializar o script:', error);
+        document.getElementById('errorMessage').classList.remove('hidden');
+      }
+    };
+  </script>
+</body>
+</html>
